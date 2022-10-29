@@ -32,31 +32,34 @@ $ truffle test
 ```
 
 ## Tests réalisés
-  
-    Contract: Voting
 
-    // ::::::::::::: REGISTRATION ::::::::::::: //
-      ✓ Début des enregistrements
-      ✓ Seul l'administrateur est habilité à ajouter un électeur
-      ✓ L'administrateur ajoute des electeurs sur la whitelist (100440 gas)
-      ✓ Un électeur ne peut pas être ajouté 2 fois (50220 gas)
-    // ::::::::::::: PROPOSAL ::::::::::::: //
-      ✓ Un électeur absent de la whitelist ne peut pas ajouter de proposition
-      ✓ Un électeur ne peut pas ajouter une proposition avant l'ouverture de la session d'enregistrement (50220 gas)
-      ✓ L'adminisrateur ouvre la session d'enregistrement des propositions (145252 gas)
-      ✓ Un électeur ne peut pas ajouter une proposition vide (145252 gas)
-      ✓ Des électeurs ajoutent des propositions (373744 gas)
-      ✓ L'administrateur cloture la session d'enregistrement (235299 gas)
-    // ::::::::::::: VOTE ::::::::::::: //
-      ✓ Un électeur absent de la whitelist ne peut pas voter
-      ✓ Un électeur ne peut pas voter si la session de vote n'est pas ouverte (235299 gas)
-      ✓ L'administrateur ouvre la session de vote (265853 gas)
-      ✓ L'électeur vote (une seule fois) pour sa proposition préférée (754329 gas)
-      ✓ L'administrateur cloture la session des votes (374399 gas)
-    // ::::::::::::: RESULTS ::::::::::::: //
-      ✓ L'administrateur désigne le vainqueur (1224746 gas)
-      
-      
+- Toutes les fonctionnalités ont été testées. 
+- Dans un premier temps, je teste l'accès aux fonctions en m'assut=rant qu'il s'agit du owner ou du voter selon les fonctions à appeler
+- Je vérifie également, qu'au statut initial l'apel aux fonctions REVERT (execptés pour addVoter)
+- Je fais enseuite une serie de tests par fonctionnalité.
+- Pour la factorisation de cote, le code duppliqué dans mes différents tests a été copié dans le BeforeEach.
+
+  
+       Contract: Voting
+          // xxxxxxxx Controles de sécurité xxxxxxxxx //
+            ✓ REVERT if the caller is not the owner
+            ✓ REVERT if the caller is not a voter
+            ✓ REVERT if the expected workflow is different (50220 gas)
+          // ::::::::::::: REGISTRATION ::::::::::::: //
+            ✓ L'administrateur ajoute des electeurs sur la whitelist (100440 gas)
+            ✓ Un électeur ne peut pas être ajouté 2 fois sur la whitelist (50220 gas)
+          // ::::::::::::: PROPOSAL ::::::::::::: //
+            ✓ L'adminisrateur ouvre la session d'enregistrement des propositions (95032 gas)
+            ✓ Un électeur ne peut pas ajouter une proposition vide (95032 gas)
+            ✓ Des électeurs ajoutent des propositions (323524 gas)
+            ✓ L'administrateur cloture la session d'enregistrement (185079 gas)
+          // ::::::::::::: VOTE ::::::::::::: //
+            ✓ L'administrateur ouvre la session de vote (61153 gas)
+            ✓ L'électeur vote (une seule fois) pour sa proposition préférée (499409 gas)
+            ✓ L'administrateur cloture la session des votes (169699 gas)
+          // ::::::::::::: RESULTS ::::::::::::: //
+            ✓ L'administrateur désigne le vainqueur (1224746 gas)
+
       ·------------------------------------------|----------------------------|-------------|----------------------------·
       |   Solc version: 0.8.17+commit.8df45f5f   ·  Optimizer enabled: false  ·  Runs: 200  ·  Block limit: 6718946 gas  │
       ···········································|····························|·············|·····························
@@ -64,17 +67,17 @@ $ truffle test
       ·············|·····························|·············|··············|·············|··············|··············
       |  Contract  ·  Method                     ·  Min        ·  Max         ·  Avg        ·  # calls     ·  eur (avg)  │
       ·············|·····························|·············|··············|·············|··············|··············
-      |  Voting    ·  addProposal                ·      59340  ·      104114  ·      64380  ·          18  ·          -  │
+      |  Voting    ·  addProposal                ·      59340  ·      104114  ·      64670  ·          17  ·          -  │
       ·············|·····························|·············|··············|·············|··············|··············
-      |  Voting    ·  addVoter                   ·          -  ·           -  ·      50220  ·          22  ·          -  │
+      |  Voting    ·  addVoter                   ·          -  ·           -  ·      50220  ·          23  ·          -  │
       ·············|·····························|·············|··············|·············|··············|··············
-      |  Voting    ·  endProposalsRegistering    ·          -  ·           -  ·      30599  ·           8  ·          -  │
+      |  Voting    ·  endProposalsRegistering    ·          -  ·           -  ·      30599  ·           6  ·          -  │
       ·············|·····························|·············|··············|·············|··············|··············
       |  Voting    ·  endVotingSession           ·          -  ·           -  ·      30533  ·           3  ·          -  │
       ·············|·····························|·············|··············|·············|··············|··············
       |  Voting    ·  setVote                    ·      60913  ·       78013  ·      76113  ·           9  ·          -  │
       ·············|·····························|·············|··············|·············|··············|··············
-      |  Voting    ·  startProposalsRegistering  ·          -  ·           -  ·      95032  ·          11  ·          -  │
+      |  Voting    ·  startProposalsRegistering  ·          -  ·           -  ·      95032  ·          10  ·          -  │
       ·············|·····························|·············|··············|·············|··············|··············
       |  Voting    ·  startVotingSession         ·          -  ·           -  ·      30554  ·           5  ·          -  │
       ·············|·····························|·············|··············|·············|··············|··············
@@ -84,8 +87,8 @@ $ truffle test
       ···········································|·············|··············|·············|··············|··············
       |  Voting                                  ·          -  ·           -  ·    2077414  ·      30.9 %  ·          -  │
       ·------------------------------------------|-------------|--------------|-------------|--------------|-------------·
-      
-      16 passing (28s)
+
+        13 passing (25s)
 
 ## Ressources
 
