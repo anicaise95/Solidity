@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-
+/*
 interface IERC2981Royalties {
     function royaltyInfo(uint256 _tokenId, uint256 _value) external view  returns (address _receiver, uint256 _royaltyAmount);
 }
@@ -34,8 +34,9 @@ contract Royalties is IERC2981Royalties, ERC165{
         royaltyAmount = (value * royalties.amount) / 10000;
     }
 }
-
-contract RockAdmin is ERC1155, Royalties, Ownable {
+*/
+//contract RockAdmin is ERC1155, Royalties, Ownable {
+contract RockAdmin is ERC1155, Ownable {
 
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
@@ -90,36 +91,24 @@ contract RockAdmin is ERC1155, Royalties, Ownable {
 
     constructor() ERC1155("https://gateway.pinata.cloud/ipfs/QmYF4vRAZg19ARiSFoXevZYkf9Zp1yVdgXhh4x22bypMc4/{id}.json") {}
 
-     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, Royalties) returns (bool){
+     /*function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, Royalties) returns (bool){
         return super.supportsInterface(interfaceId);
-    }
+    }*/
 
-    function MintRock(address _contractOwner, uint256 typeCard, RealEstate memory newRealEstateToMint) public returns (uint256)
+    function MintRock(address _contractOwner, uint _indexRealEstateInCollection) public returns (uint256)
     {
         _tokenIds.increment();
 
         uint256 newItemId = _tokenIds.current();
 
-        if(typeCard == CARD_COTTAGE)
-         _mint(_contractOwner, typeCard, newRealEstateToMint.supplyMaxCardType[CARD_COTTAGE] , "");
-        if(typeCard == CARD_VILLA)
-         _mint(_contractOwner, typeCard, newRealEstateToMint.supplyMaxCardType[CARD_VILLA] , "");
-        if(typeCard == CARD_MANSION)
-         _mint(_contractOwner, typeCard, newRealEstateToMint.supplyMaxCardType[CARD_MANSION] , "");
-        if(typeCard == CARD_HIGH_RISE)
-         _mint(_contractOwner, typeCard, newRealEstateToMint.supplyMaxCardType[CARD_HIGH_RISE] , "");
+        _mint(_contractOwner, CARD_COTTAGE, realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[CARD_COTTAGE] , "");
+        _mint(_contractOwner, CARD_VILLA, realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[CARD_VILLA] , "");
+        _mint(_contractOwner, CARD_MANSION, realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[CARD_MANSION] , "");
+        _mint(_contractOwner, CARD_HIGH_RISE, realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[CARD_HIGH_RISE] , "");
 
-        _setTokenRoyalty(newItemId, msg.sender, 1000);
+        //_setTokenRoyalty(newItemId, msg.sender, 1000);
  
         return newItemId;
-    }
-
-    // Pour chaque bien immo, calcul de la sypply pour chaque type de carte 
-    // TODO : vérifier les divisions (*1000) voir pour arrondir au supérieur    
-    // TODO : vérifier controle require sur ratio > 0
-    function calculeSupply(uint256 _realEstatePrice, uint256 _tokenPrice, uint256 _ratioToken) internal pure returns (uint256){
-        uint256 supplyToken = ((_realEstatePrice * _ratioToken) / _tokenPrice);
-        return supplyToken;
     }
 
     // L'administrateur déclare un nouveau bien immo
@@ -142,7 +131,7 @@ contract RockAdmin is ERC1155, Royalties, Ownable {
         newRealEstate.supplyMaxCardType = [DEFAULT_MAX_SUPPLY_COTTAGE, DEFAULT_MAX_SUPPLY_VILLA, DEFAULT_MAX_SUPPLY_MANSION, DEFAULT_MAX_SUPPLY_HIGH_RISE];
 
         // Ajout du bien au catalogue
-        realEstatesCollection[_realEstateIds.current()] = newRealEstate;
+        realEstatesCollection.push(newRealEstate);
 
         // Evenement RealEstateAdd avec position de l'élément dans le tableau  
         emit RealEstateAdd(_realEstateIds.current() - 1);
@@ -154,35 +143,47 @@ contract RockAdmin is ERC1155, Royalties, Ownable {
     function updateSuppliesCard (uint8 _indexRealEstateInCollection, bool _isDefaultSupply, uint8 _ratioTokenCottage, uint8 _ratioTokenVilla, uint8 _ratioTokenMansion, uint256 _prixTokenCottage, uint256 _prixTokenVilla, uint256 _prixTokenHighRise) public onlyOwner {
         require(_isDefaultSupply || (!_isDefaultSupply && (_ratioTokenCottage > 0 && _ratioTokenVilla > 0 && _ratioTokenMansion > 0)), unicode"Erreur, un des pourcentages est a 0");
 
-        if(_ratioTokenCottage + _ratioTokenVilla + _ratioTokenMansion != 100){
-            revert("Erreur, le pourcentage total doit faire 100%");
-        }
-
         // Récupère le bien immo à la position indiquée
-        RealEstate memory realEstate = realEstatesCollection[_indexRealEstateInCollection]; 
-        uint256[4] memory estimatedSupply;
+        uint256[4] memory estimatedSupply = realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType;
+        uint256 price = realEstatesCollection[_indexRealEstateInCollection].price;
 
         if(_isDefaultSupply) {
-            estimatedSupply[CARD_COTTAGE]   = calculeSupply(realEstate.price, _prixTokenCottage, DEFAULT_RATIO_COTTAGE_TOKENS);
-            estimatedSupply[CARD_VILLA]     = calculeSupply(realEstate.price, _prixTokenVilla, DEFAULT_RATIO_VILLA_TOKENS);
-            estimatedSupply[CARD_MANSION]   = calculeSupply(realEstate.price, _prixTokenHighRise, DEFAULT_RATIO_MANSION_TOKENS);
+            estimatedSupply[CARD_COTTAGE]   = getNumberOfTokenToMint(price, _prixTokenCottage, DEFAULT_RATIO_COTTAGE_TOKENS);
+            estimatedSupply[CARD_VILLA]     = getNumberOfTokenToMint(price, _prixTokenVilla, DEFAULT_RATIO_VILLA_TOKENS);
+            estimatedSupply[CARD_MANSION]   = getNumberOfTokenToMint(price, _prixTokenHighRise, DEFAULT_RATIO_MANSION_TOKENS);
             estimatedSupply[CARD_HIGH_RISE] = 1;
         } else {
-            estimatedSupply[CARD_COTTAGE]   = calculeSupply(realEstate.price, _prixTokenCottage, _ratioTokenCottage);
-            estimatedSupply[CARD_VILLA]     = calculeSupply(realEstate.price, _prixTokenVilla, _ratioTokenVilla);
-            estimatedSupply[CARD_MANSION]   = calculeSupply(realEstate.price, _prixTokenHighRise, _ratioTokenMansion);
+            estimatedSupply[CARD_COTTAGE]   = getNumberOfTokenToMint(price, _prixTokenCottage, _ratioTokenCottage);
+            estimatedSupply[CARD_VILLA]     = getNumberOfTokenToMint(price, _prixTokenVilla, _ratioTokenVilla);
+            estimatedSupply[CARD_MANSION]   = getNumberOfTokenToMint(price, _prixTokenHighRise, _ratioTokenMansion);
             estimatedSupply[CARD_HIGH_RISE] = 1;
         }
-        realEstate.supplyMaxCardType = estimatedSupply;
-
-        // Ajout du bien au catalogue
-        realEstatesCollection[_indexRealEstateInCollection] = realEstate;
+        realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType = estimatedSupply;
 
         emit SupplyUpdated(_indexRealEstateInCollection);
     }
 
+    // Pour chaque bien immo, calcul du nombre de token à minter pour chaque type de carte 
+    // TODO : vérifier les divisions (*1000) voir pour arrondir au supérieur    
+    // TODO : vérifier controle require sur ratio > 0
+    /// _realEstatePrice : Prix du bien immobilier à tokeniser (ex : 1 000 000 €)
+    /// _tokenPrice : prix de la carte spécifiée par l'administrateur (ex : 50 €)
+    /// _realEstatePriceRatio : Purcentage du prix du bien concerné (50%)
+    /// SUr 50% du prix du bien (1 000 000 €), l'administrateur souhaite calculer le nombre de token de 50 € (supply)
+    function getNumberOfTokenToMint(uint256 _realEstatePrice, uint256 _tokenPrice, uint256 _realEstatePriceRatio) public view onlyOwner returns (uint256){
+        require(_realEstatePrice >= 50000, "Erreur, le prix minimum du bien immobilier est de 50000");
+        require(_tokenPrice >= 50, "Erreur, le prix minimum de vente est 50");
+        require(_realEstatePriceRatio <= 100, "Erreur, le pourcentage doit etre inferieur a 100 pourcents");
+        
+        uint ratioMultiplier = _realEstatePriceRatio * 100;
+        uint256 value = _realEstatePrice * ratioMultiplier / 10000;
+        uint256 supplyToken = value / _tokenPrice;
+
+        return supplyToken;
+    }
+
     // L'administrateur minte les NFTS d'une collection (d'un bien immo)
-    function mintRealEstate(uint _indexRealEstateInCollection) public onlyOwner {
+    /*function mintRealEstate(uint _indexRealEstateInCollection) public onlyOwner {
 
         // Récupère le bien immo à la position indiquée
         RealEstate memory newRealEstateToMint = realEstatesCollection[_indexRealEstateInCollection];   
@@ -194,5 +195,5 @@ contract RockAdmin is ERC1155, Royalties, Ownable {
         MintRock(msg.sender, CARD_HIGH_RISE, newRealEstateToMint);
 
         emit CardsMinted(_indexRealEstateInCollection);
-    }
+    }*/
 }
