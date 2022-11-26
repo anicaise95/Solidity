@@ -1,0 +1,197 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.17;
+
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+interface IERC2981Royalties {
+    function royaltyInfo(uint256 _tokenId, uint256 _value) external view  returns (address _receiver, uint256 _royaltyAmount);
+}
+
+contract Royalties is IERC2981Royalties, ERC165{
+    struct RoyaltyInfo {
+        address recipient;
+        uint24 amount;
+    }
+
+    mapping(uint256 => RoyaltyInfo) internal _royalties;
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(IERC2981Royalties).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    function _setTokenRoyalty( uint256 tokenId, address recipient, uint256 value) internal {
+        require(value <= 10000, 'ERC2981Royalties: Too high');
+        _royalties[tokenId] = RoyaltyInfo(recipient, uint24(value));
+    }
+
+    function royaltyInfo(uint256 tokenId, uint256 value) external view override returns (address receiver, uint256 royaltyAmount)
+    {
+        RoyaltyInfo memory royalties = _royalties[tokenId];
+        receiver = royalties.recipient;
+        royaltyAmount = (value * royalties.amount) / 10000;
+    }
+}
+
+contract RockAdmin is ERC1155, Royalties, Ownable {
+
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
+    Counters.Counter private _realEstateIds;
+
+    string public name = "Rock Collection";
+
+   struct RealEstate {
+        string name;
+        string location;
+        string city;
+        uint256 price;
+        uint256 supplyTokenCottage;
+        uint256 supplyTokenVilla;
+        uint256 supplyTokenMansion;
+        uint256 supplyTokenhighRise;
+    }
+
+    struct NFT {
+      uint256 nftId;
+      address payable owner;
+      //address payable ;
+      uint256 price;
+      bool sold;
+    }
+
+    NFT[] ntfs;
+
+    // Patrimoine immobilier (collection des NFT)
+    RealEstate[] realEstatesCollection;
+
+    // Type de carte
+    uint256 public constant CARD_COTTAGE = 0;
+    uint256 public constant CARD_VILLA = 1;
+    uint256 public constant CARD_MANSION = 2;
+    uint256 public constant CARD_HIGH_RISE = 3;
+
+    // SUPPLY max par type de carte
+    // uint256 public constant COTTAGE_MAX_SUPPLY = 10000;
+    // uint256 public constant VILLA_MAX_SUPPLY = 1000;
+    // uint256 public constant MANSION_MAX_SUPPLY = 100;
+    // uint256 public constant HIGH_RISE_MAX_SUPPLY = 1;
+
+    // Répartion des tokens par type de carte
+    uint256 public constant DEFAULT_RATIO_COTTAGE_TOKENS = 50;
+    uint256 public constant DEFAULT_RATIO_VILLA_TOKENS = 30;
+    uint256 public constant DEFAULT_RATIO_MANSION_TOKENS = 20;
+
+
+    constructor() ERC1155("https://gateway.pinata.cloud/ipfs/QmYF4vRAZg19ARiSFoXevZYkf9Zp1yVdgXhh4x22bypMc4/{id}.json") {}
+
+     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, Royalties) returns (bool){
+        return super.supportsInterface(interfaceId);
+    }
+
+    function MintRock(address _contractOwner, uint256 typeCard, RealEstate memory newRealEstateCollectionToMint) public returns (uint256)
+    {
+        _tokenIds.increment();
+
+        uint256 newItemId = _tokenIds.current();
+
+        if(typeCard == CARD_COTTAGE)
+         _mint(_contractOwner, typeCard, newRealEstateCollectionToMint.supplyTokenCottage , "");
+        if(typeCard == CARD_VILLA)
+         _mint(_contractOwner, typeCard, newRealEstateCollectionToMint.supplyTokenVilla , "");
+        if(typeCard == CARD_MANSION)
+         _mint(_contractOwner, typeCard, newRealEstateCollectionToMint.supplyTokenMansion , "");
+        if(typeCard == CARD_HIGH_RISE)
+         _mint(_contractOwner, typeCard, newRealEstateCollectionToMint.supplyTokenhighRise , "");
+
+        _setTokenRoyalty(newItemId, msg.sender, 1000);
+
+        /*uint nftId = _tokenIds--;
+        nfts[nftId].nftId = nftId;
+        nfts[nftId].owner = _contractOwner;
+        nfts[nftId].price = _price;
+        nfts[nftId].sold = false;*/
+ 
+        return newItemId;
+    }
+
+    // Pour chaque bien immo, calcul de la sypply pour chaque type de carte 
+    // TODO : vérifier les divisions (*1000) voir pour arrondir au supérieur    
+    // TODO : vérifier controle require sur ratio > 0
+    function calculeSupply(uint256 _realEstatePrice, uint256 _tokenPrice, uint256 _ratioToken) internal pure returns (uint256){
+        uint256 supplyToken = ((_realEstatePrice * _ratioToken) / _tokenPrice) * 1000;
+        return supplyToken;
+    }
+
+    
+    // L'administrateur déclare un nouveau bien immo
+    // Retourne la position du bien immo dans le tableau
+    // TODO faire les require sur les string
+    function addRealEstate(RealEstate memory realEstate, bool _isDefautRatio, uint256 _ratioTokenCottage, uint256 _ratioTokenVilla, uint256 _ratioTokenMansion, uint256 _prixTokenCottage, uint256 _prixTokenVilla, uint256 _prixTokenHighRise) public onlyOwner returns(uint256) {
+        require(realEstate.price > 0, unicode"Erreur, le prix du bien immo doit être supérieur à O");
+        require(_isDefautRatio || (!_isDefautRatio && (_ratioTokenCottage > 0 && _ratioTokenVilla > 0 && _ratioTokenMansion > 0)), unicode"Erreur, un des pourcentages est a 0");
+        //require(_ratioTokenCottage + _ratioTokenVilla + _ratioTokenMansion = 100, unicode"Erreur, le pourcentage total doit faire 100%");
+
+        if(_ratioTokenCottage + _ratioTokenVilla + _ratioTokenMansion != 100){
+            revert("Erreur, le pourcentage total doit faire 100%");
+        }
+
+        _realEstateIds.increment();
+
+        if(_isDefautRatio)  {
+            _ratioTokenCottage = DEFAULT_RATIO_COTTAGE_TOKENS;
+            _ratioTokenVilla = DEFAULT_RATIO_VILLA_TOKENS;
+            _ratioTokenMansion = DEFAULT_RATIO_MANSION_TOKENS;
+        } 
+
+        // Création d'un nouveau bien immobilier
+        
+        uint256 supplyTokenCottage = calculeSupply(realEstate.price, _prixTokenCottage, _ratioTokenCottage);
+        uint256 supplyTokenVilla = calculeSupply(realEstate.price, _prixTokenVilla, _ratioTokenVilla);
+        uint256 supplyTokenMansion = calculeSupply(realEstate.price, _prixTokenHighRise, _ratioTokenMansion);
+        uint256 supplyTokenhighRise = 1;
+
+        
+        // = RealEstate(_name, _location, _city, _price, supplyTokenCottage, supplyTokenVilla, supplyTokenMansion, supplyTokenhighRise);
+        realEstate.supplyTokenCottage = supplyTokenCottage;
+        realEstate.supplyTokenVilla = supplyTokenVilla;
+        realEstate.supplyTokenMansion = supplyTokenMansion;
+        realEstate.supplyTokenhighRise = supplyTokenhighRise;
+
+        // Ajout du bien au catalogue
+        realEstatesCollection[_realEstateIds.current()] = realEstate;
+
+        // Retourne l'index de l'objet dans le tableau
+        uint indexRealEstateInCollection = _realEstateIds.current() - 1;
+
+        return indexRealEstateInCollection;
+    }
+
+    // L'administrateur minte les NFTS d'une collection (d'un bien immo)
+    function mintRealEstate(uint _indexRealEstateInCollection) public onlyOwner {
+
+        // Récupère le bien immo à la position indiquée
+        RealEstate memory newRealEstateCollectionToMint = realEstatesCollection[_indexRealEstateInCollection];   
+
+        // L'administrateur minte les SFT du bien immobilier
+        MintRock(msg.sender, CARD_COTTAGE, newRealEstateCollectionToMint);
+        MintRock(msg.sender, CARD_VILLA, newRealEstateCollectionToMint);
+        MintRock(msg.sender, CARD_MANSION, newRealEstateCollectionToMint);
+        MintRock(msg.sender, CARD_HIGH_RISE, newRealEstateCollectionToMint);
+    }
+
+    // afficher tous les nfts en vente (toSell = true)
+    
+    /*function fetchAllbyCollection() public returns (NFT[]){
+    }
+
+
+    }
+
+    function fetchNftsByOwner() public returns only investisseur (NFT[]){
+
+    }*/
+
+}
