@@ -69,7 +69,7 @@ contract RockAdmin is ERC1155, Ownable {
         uint256 royalty;
         address payable seller;
         address payable owner;
-        bool sold;
+        bool forSale;
     }
 
     NFTMarketItem[] Nfts;
@@ -78,21 +78,21 @@ contract RockAdmin is ERC1155, Ownable {
     RealEstate[] public realEstatesCollection;
 
     // Type de carte
-    uint256 public constant CARD_COTTAGE = 0;
-    uint256 public constant CARD_VILLA = 1;
-    uint256 public constant CARD_MANSION = 2;
-    uint256 public constant CARD_HIGH_RISE = 3;
+    uint256 private constant CARD_COTTAGE = 0;
+    uint256 private constant CARD_VILLA = 1;
+    uint256 private constant CARD_MANSION = 2;
+    uint256 private constant CARD_HIGH_RISE = 3;
 
     // Répartion des tokens par type de carte
-    uint256 public constant DEFAULT_RATIO_COTTAGE_TOKENS = 50;
-    uint256 public constant DEFAULT_RATIO_VILLA_TOKENS = 30;
-    uint256 public constant DEFAULT_RATIO_MANSION_TOKENS = 20;
+    uint256 private constant DEFAULT_RATIO_COTTAGE_TOKENS = 50;
+    uint256 private constant DEFAULT_RATIO_VILLA_TOKENS = 30;
+    uint256 private constant DEFAULT_RATIO_MANSION_TOKENS = 20;
 
     // Répartion des tokens par type de carte
-    uint256 public constant DEFAULT_MAX_SUPPLY_COTTAGE = 10000;
-    uint256 public constant DEFAULT_MAX_SUPPLY_VILLA = 1000;
-    uint256 public constant DEFAULT_MAX_SUPPLY_MANSION = 100;
-    uint256 public constant DEFAULT_MAX_SUPPLY_HIGH_RISE = 1;
+    uint256 private constant DEFAULT_MAX_SUPPLY_COTTAGE = 10000;
+    uint256 private constant DEFAULT_MAX_SUPPLY_VILLA = 1000;
+    uint256 private constant DEFAULT_MAX_SUPPLY_MANSION = 100;
+    uint256 private constant DEFAULT_MAX_SUPPLY_HIGH_RISE = 1;
 
     constructor() ERC1155("https://gateway.pinata.cloud/ipfs/QmYF4vRAZg19ARiSFoXevZYkf9Zp1yVdgXhh4x22bypMc4/{id}.json") {}
 
@@ -102,25 +102,39 @@ contract RockAdmin is ERC1155, Ownable {
 
     function MintRock(address _contractOwner, uint256 typeCard, uint _indexRealEstateInCollection) public returns (uint256)
     {
-       
         _tokenIds.increment();
+        _mint(_contractOwner, _tokenIds.current(), realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[typeCard] , "");
 
-        uint256 _id = _tokenIds.current();
-
-        _mint(_contractOwner, _id, realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[typeCard] , "");
-
-        
-        /*_tokenIds.increment();
-        _mint(_contractOwner, CARD_VILLA, realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[CARD_VILLA] , "");
-        _mint(_contractOwner, CARD_MANSION, realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[CARD_MANSION] , "");
-        _mint(_contractOwner, CARD_HIGH_RISE, realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[CARD_HIGH_RISE] , "");*/
-
-
+        /*
+        uint256 number = realEstatesCollection[_indexRealEstateInCollection].supplyMaxCardType[typeCard];
+        for(uint idToken = 1; idToken <= number; idToken++){
+            _mint(_contractOwner, _tokenIds.current(), 1 , "");
+        }*/
 
         //_setTokenRoyalty(newItemId, msg.sender, 1000);
  
-        return _id;
+        return _tokenIds.current();
     }
+
+    function buy(address seller, uint256 id, uint256 amount) public payable {
+        // TODO addfees
+        _safeTransferFrom(msg.sender, seller, id, amount, "");
+    }
+
+    function sell(address seller, uint256 id, uint256 amount) public payable {
+         // TODO addfees
+        _safeTransferFrom(msg.sender, seller, id, amount, "");
+    }
+
+    function fetchAll() public view {
+        // TODO
+    }
+
+    function fetchMyNfts() public view {
+        uint256[] memory ids;
+        balanceOfBatch(msg.sender, ids);
+    }
+
 
     // L'administrateur déclare un nouveau bien immo
     // Retourne la position du bien immo dans le tableau
